@@ -30,6 +30,45 @@ def query_ollama(prompt):
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="AI Financial Assistant", layout="wide")
+
+# --- Sidebar Authentication Controls ---
+with st.sidebar:
+    with st.expander("🔑 E*TRADE Authentication"):
+        # Check if we have a valid session for the sidebar controls
+        sidebar_session, _ = etrade_client.load_saved_session("sandbox")
+        if sidebar_session is not None:
+            st.success("E*TRADE Status: Authenticated")
+            # Provide a quick re-auth path in case tokens are expired
+            if st.button("Force Re-auth", help="Start new authorization flow (useful if tokens are expired)"):
+                try:
+                    # remove saved tokens file
+                    if hasattr(etrade_client, 'TOKENS_FILE'):
+                        tf = etrade_client.TOKENS_FILE
+                    else:
+                        tf = os.path.join(os.path.dirname(__file__), "etrade", "tokens.json")
+                    if os.path.exists(tf):
+                        os.remove(tf)
+
+                    # start a new auth flow immediately and store request token info
+                    authorize_url, req_token, req_secret, base = etrade_client.start_auth("sandbox")
+                    st.session_state.etrade_oauth = {
+                        "request_token": req_token,
+                        "request_token_secret": req_secret,
+                        "authorize_url": authorize_url,
+                        "base_url": base
+                    }
+                    try:
+                        webbrowser.open(authorize_url)
+                    except Exception:
+                        pass
+
+                    # force reload so UI shows the authorize URL and PIN input
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Failed to start re-auth: {e}")
+        else:
+            st.info("E*TRADE Status: Not authenticated")
+
 st.title("📈 AI Financial Assistant (E*TRADE + Local LLM)")
 
 if "chat_history" not in st.session_state:
@@ -106,35 +145,8 @@ with col1:
         session = None
 
     else:
-        st.success("E*TRADE: authenticated (tokens loaded)")
-        # Provide a quick re-auth path in case tokens are expired
-        if st.button("Force Re-auth (start new authorization)"):
-            try:
-                # remove saved tokens file
-                if hasattr(etrade_client, 'TOKENS_FILE'):
-                    tf = etrade_client.TOKENS_FILE
-                else:
-                    tf = os.path.join(os.path.dirname(__file__), "etrade", "tokens.json")
-                if os.path.exists(tf):
-                    os.remove(tf)
-
-                # start a new auth flow immediately and store request token info
-                authorize_url, req_token, req_secret, base = etrade_client.start_auth("sandbox")
-                st.session_state.etrade_oauth = {
-                    "request_token": req_token,
-                    "request_token_secret": req_secret,
-                    "authorize_url": authorize_url,
-                    "base_url": base
-                }
-                try:
-                    webbrowser.open(authorize_url)
-                except Exception:
-                    pass
-
-                # force reload so UI shows the authorize URL and PIN input
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"Failed to start re-auth: {e}")
+        # Show auth success in a dismissible banner above the data section
+        st.toast("E*TRADE: Successfully authenticated", icon="✅")
 
     # User selects ticker
     ticker = st.text_input("Enter ticker symbol:", "AAPL")
