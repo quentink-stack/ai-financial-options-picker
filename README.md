@@ -16,6 +16,7 @@ ollama pull llama3
 ```
 
 ## 2- Activate your Conda env, or if terminal is launched from Anaconda Navigator this can be skipped of course
+You can do this manually/gui wise with [Anaconda Navigator](https://www.anaconda.com/products/navigator)
 Recreate the Conda Env- this easily handles all dependencies required for the project. No more pain with Pip!
 ```
 conda env create -f environment.yml
