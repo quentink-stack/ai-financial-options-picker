@@ -29,7 +29,7 @@ conda activate ai_financial
 
 Run the Streamlit Python UI app, from the Python Anaconda Env (since it is a Python app)
 ```
-streamlit run main_streamlit.py
+streamlit run app/main_streamlit.py
 ```
 
 Open the local URL (usually http://localhost:8501), but it usually opens automatically in browser
