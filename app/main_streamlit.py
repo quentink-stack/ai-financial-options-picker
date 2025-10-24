@@ -71,6 +71,24 @@ with st.sidebar:
 
 st.title("📈 AI Financial Assistant (E*TRADE + Local LLM)")
 
+# Project Overview
+st.markdown("""
+<div style='background-color:#e8f4fa; padding:20px; border-radius:10px; margin-bottom:20px'>
+    <h2 style='margin-top:0'>Welcome to the AI Financial Assistant!</h2>
+    <p style='font-size:20px'>This tool helps you analyze financial options data using AI. Here's what you can do:</p>
+    <ul style='font-size:20px; margin-left:25px; line-height:1.6'>
+        <li>Get <b>live, real-time </b> market data from E*TRADE (quotes and options chains) after authenticating</li>
+        <li>Upload your own options data in CSV format</li>
+        <li>Chat with an AI assistant about the data</li>
+        <li>Get AI-powered analysis and recommendations</li>
+    </ul>
+    <p style='font-size:20px'>
+        The assistant uses a <a href="https://ollama.com/" target="_blank">local LLM (Ollama) for privacy and speed</a>↗️. Connect your E*TRADE account 
+        to access live market data, or upload your own data to get started.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
