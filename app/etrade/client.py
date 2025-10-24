@@ -34,7 +34,7 @@ def get_etrade_session(env="sandbox"):
     else:
         raise ValueError("env must be 'sandbox' or 'prod'")
 
-    # Check if we already have saved tokens
+    # Prefer to load saved tokens if available
     try:
         with open(TOKENS_FILE, "r") as f:
             tokens = json.load(f)
@@ -48,6 +48,7 @@ def get_etrade_session(env="sandbox"):
             )
             return session, base_url
     except FileNotFoundError:
+        # Fall back to interactive flow (original behaviour)
         pass
 
     # Create OAuth1Service
@@ -90,6 +91,127 @@ def get_etrade_session(env="sandbox"):
         json.dump(tokens, f, indent=2)
 
     print("🎉 Auth complete, tokens saved to", TOKENS_FILE)
+    return session, base_url
+
+
+def load_saved_session(env="sandbox"):
+    """
+    Try to load a saved OAuth session from tokens.json. Returns (session, base_url) or (None, None).
+    """
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    consumer_key = config["DEFAULT"]["CONSUMER_KEY"]
+    consumer_secret = config["DEFAULT"]["CONSUMER_SECRET"]
+
+    if env == "sandbox":
+        base_url = config["DEFAULT"]["SANDBOX_BASE_URL"]
+    elif env == "prod":
+        base_url = config["DEFAULT"]["PROD_BASE_URL"]
+    else:
+        raise ValueError("env must be 'sandbox' or 'prod'")
+
+    try:
+        with open(TOKENS_FILE, "r") as f:
+            tokens = json.load(f)
+            from rauth import OAuth1Session
+            session = OAuth1Session(
+                consumer_key,
+                consumer_secret,
+                tokens["access_token"],
+                tokens["access_secret"]
+            )
+            return session, base_url
+    except FileNotFoundError:
+        return None, None
+
+
+def start_auth(env="sandbox"):
+    """
+    Start an OAuth flow and return (authorize_url, request_token, request_token_secret, base_url).
+    The caller should store the request token/secret temporarily (for example in Streamlit session_state)
+    and then call `complete_auth` with the verifier PIN.
+    """
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    consumer_key = config["DEFAULT"]["CONSUMER_KEY"]
+    consumer_secret = config["DEFAULT"]["CONSUMER_SECRET"]
+
+    if env == "sandbox":
+        base_url = config["DEFAULT"]["SANDBOX_BASE_URL"]
+        request_token_url = "https://apisb.etrade.com/oauth/request_token"
+        access_token_url = "https://apisb.etrade.com/oauth/access_token"
+    elif env == "prod":
+        base_url = config["DEFAULT"]["PROD_BASE_URL"]
+        request_token_url = "https://api.etrade.com/oauth/request_token"
+        access_token_url = "https://api.etrade.com/oauth/access_token"
+    else:
+        raise ValueError("env must be 'sandbox' or 'prod'")
+
+    etrade = OAuth1Service(
+        name="etrade",
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        request_token_url=request_token_url,
+        access_token_url=access_token_url,
+        authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",
+        base_url=base_url
+    )
+
+    request_token, request_token_secret = etrade.get_request_token(
+        params={"oauth_callback": "oob"}
+    )
+
+    authorize_url = etrade.authorize_url.format(consumer_key, request_token)
+    return authorize_url, request_token, request_token_secret, base_url
+
+
+def complete_auth(request_token, request_token_secret, verifier, env="sandbox"):
+    """
+    Complete the OAuth flow given the request token/secret and verifier PIN.
+    Saves tokens.json and returns (session, base_url).
+    """
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+
+    consumer_key = config["DEFAULT"]["CONSUMER_KEY"]
+    consumer_secret = config["DEFAULT"]["CONSUMER_SECRET"]
+
+    if env == "sandbox":
+        base_url = config["DEFAULT"]["SANDBOX_BASE_URL"]
+        request_token_url = "https://apisb.etrade.com/oauth/request_token"
+        access_token_url = "https://apisb.etrade.com/oauth/access_token"
+    elif env == "prod":
+        base_url = config["DEFAULT"]["PROD_BASE_URL"]
+        request_token_url = "https://api.etrade.com/oauth/request_token"
+        access_token_url = "https://api.etrade.com/oauth/access_token"
+    else:
+        raise ValueError("env must be 'sandbox' or 'prod'")
+
+    etrade = OAuth1Service(
+        name="etrade",
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        request_token_url=request_token_url,
+        access_token_url=access_token_url,
+        authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",
+        base_url=base_url
+    )
+
+    session = etrade.get_auth_session(
+        request_token,
+        request_token_secret,
+        params={"oauth_verifier": verifier}
+    )
+
+    tokens = {
+        "access_token": session.access_token,
+        "access_secret": session.access_token_secret
+    }
+    with open(TOKENS_FILE, "w") as f:
+        json.dump(tokens, f, indent=2)
+
     return session, base_url
 
 
